@@ -1,0 +1,39 @@
+apply plugin: 'com.github.dcendents.android-maven'
+
+group = 'com.pimoroni.android.things.contrib.community.driver'
+
+install {
+    repositories.mavenInstaller {
+        pom {
+            project {
+                packaging 'aar'
+                groupId 'com.pimoroni.android.things.contrib.community.driver'
+                artifactId 'ltr559'
+
+                name 'ltr559'
+                description 'Android Things LTR559 driver'
+                url 'https://github.com/knobtviker/ltr559-androidthings'
+
+                licenses {
+                    license {
+                        name 'MIT'
+                        url 'https://github.com/pimoroni/ltr559-androidthings/blob/master/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id 'gadgetoid'
+                        name 'Phil Howard'
+                        email 'phil@pimoroni.com'
+                    }
+                }
+                scm {
+                    connection 'https://github.com/pimoroni/ltr559-androidthings.git'
+                    developerConnection 'https://github.com/pimoroni/ltr559-androidthings.git'
+                    url 'https://github.com/pimoroni/ltr559-androidthings'
+
+                }
+            }
+        }
+    }
+}
