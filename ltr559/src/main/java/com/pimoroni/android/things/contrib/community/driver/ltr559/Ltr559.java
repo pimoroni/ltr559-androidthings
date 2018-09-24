@@ -35,7 +35,7 @@ public class Ltr559 implements AutoCloseable {
     private static final int REG_INTERRUPT       = 0x8f;
     private static final int REG_PS_THRESHOLD    = 0x90;
     private static final int REG_PS_OFFSET       = 0x94;
-    private static final int REG_ALT_THRESHOLD   = 0x97;
+    private static final int REG_ALS_THRESHOLD   = 0x97;
     private static final int REG_INTERRUPT_PERSIST = 0x9e;
 
     public static final int I2C_ADDRESS = 0x23;
@@ -52,47 +52,68 @@ public class Ltr559 implements AutoCloseable {
     private int als1;
     private double lux;
 
+    /**
+     * Initialise the Ltr559.
+     *
+     * @param bus i2c bus device.
+     * @throws IOException
+     */
     public Ltr559(@NonNull final String bus) throws IOException {
         final PeripheralManager peripheralManager = PeripheralManager.getInstance();
         this.device = peripheralManager.openI2cDevice(bus, I2C_ADDRESS);
         this.connect();
     }
 
+    /**
+     * Get a calculated lux value from the sensor.
+     *
+     * @return light amount in lux.
+     * @throws IOException
+     */
     public double getLux() throws IOException {
         this.updateSensor();
         return this.lux;
     }
 
+    /**
+     * Get the raw proximity value from the sensor.
+     *
+     * @return the proximity value.
+     * @throws IOException
+     */
     public int getProximity() throws IOException {
         this.updateSensor();
         return this.ps0;
     }
 
-    public void setProximityRate(int rateMs)
+    /**
+     * Set proximity sensor update rate.
+     *
+     * @param rate update period in milliseconds. One of: 10, 50, 70, 100, 200, 500, 1000 or 2000.
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
+    public void setProximityRate(int rate)
             throws IOException, IllegalArgumentException {
-        final int lookupRate[] = new int[]{
-                10,
-                50,
-                70,
-                100,
-                200,
-                500,
-                1000,
-                2000
-        };
-        final int bitValue = 0;
+        final int bitValue = Arrays.asList(10, 50, 70, 100, 200, 500, 1000, 2000).indexOf(rate);
+        if(bitValue == -1){
+            throw new IllegalArgumentException(
+                    String.format("Invalid value supplied for rate: %d.", rate));
+        }
         setBits(REG_PS_MEAS_RATE, 0x0f, 0, bitValue);
     }
 
+    /**
+     * Set light sensor options.
+     *
+     * @param active status of the light sensor.
+     * @param gain gain multiplier, one of: 1, 2, 4, 8, 48 or 96.
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
     public void setLightOptions(boolean active, int gain)
             throws IOException, IllegalArgumentException {
-        final int bitValue = Arrays.asList(
-                1,
-                2,
-                4,
-                8,
-                48,
-                96).indexOf(gain);
+        final int bitValue = Arrays.asList(1, 2, 4, 8, 48, 96).indexOf(gain);
         if(bitValue == -1){
             throw new IllegalArgumentException(
                     String.format("Invalid value supplied for gain: %d.", gain));
@@ -101,22 +122,63 @@ public class Ltr559 implements AutoCloseable {
         setBits(REG_ALS_CONTROL, 0b00011100, 2, bitValue);
     }
 
-    public void setLightIntegrationTime(int timeMs)
+    /**
+     * Set light sensor measurement rate.
+     *
+     * @param rate measurement rate in milliseconds, one of: 50, 100, 200, 500, 1000, 2000
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
+    public void setLightRate(int rate)
             throws IOException, IllegalArgumentException {
-        final int bitValue = Arrays.asList(100, 50, 200, 400, 150, 250, 300, 350).indexOf(timeMs);
+        final int bitValue = Arrays.asList(50, 100, 200, 500, 1000, 2000).indexOf(rate);
         if(bitValue == -1){
             throw new IllegalArgumentException(
-                    String.format("Invalid value supplied for timeMs: %d.", timeMs));
+                    String.format("Invalid value supplied for rate: %d.", rate));
+        }
+        setBits(REG_ALS_MEAS_RATE, 0b00000111, 0, bitValue);
+    }
+
+    /**
+     * Set light sensor integration time.
+     *
+     * @param time time, in milliseconds, one of: 50, 100, 150, 200, 250, 300, 350 or 400
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
+    public void setLightIntegrationTime(int time)
+            throws IOException, IllegalArgumentException {
+        final int bitValue = Arrays.asList(100, 50, 200, 400, 150, 250, 300, 350).indexOf(time);
+        if(bitValue == -1){
+            throw new IllegalArgumentException(
+                    String.format("Invalid value supplied for timeMs: %d.", time));
         }
         setBits(REG_ALS_MEAS_RATE, 0b00111000, 3, bitValue);
     }
 
+    /**
+     * Set up the proximity sensor.
+     *
+     * @param active status of the proximity sensor.
+     * @param saturationIndicator whether the saturation indicator bit should be set.
+     * @throws IOException
+     */
     public void setProximityControl(boolean active, boolean saturationIndicator)
             throws IOException {
         setBits(REG_PS_CONTROL, 0b00100000, 5, saturationIndicator ? 1 : 0); // Saturation Indicator Enable
         setBits(REG_PS_CONTROL, 0b00000011, 0, active ? 0b11 : 0); // Active
     }
 
+    /**
+     * Set up the proximity LED behaviour.
+     *
+     * @param current the LED current in mA: 5, 10, 20, 50 or 100
+     * @param dutyCycle the LED pulse duty cycle: 25, 50, 75 or 100
+     * @param pulseFreq the LED pulse frequency in kHz: 30, 40, 50, 60, 70, 80, 90 or 100
+     * @param numPulses number of pulses the LED makes each cycle: 0-31
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
     public void setProximityLED(int current, int dutyCycle, int pulseFreq, int numPulses)
             throws IOException, IllegalArgumentException {
         int bitValue;
@@ -144,6 +206,25 @@ public class Ltr559 implements AutoCloseable {
         setBits(REG_PS_N_PULSES, 0b00001111, 0, numPulses);
     }
 
+    public void setProximityThreshold(short lower, short upper)
+            throws IOException {
+        this.device.writeRegWord(REG_PS_THRESHOLD + 0, lower);
+        this.device.writeRegWord(REG_PS_THRESHOLD + 2, upper);
+
+    }
+
+    public void setLightThreshold(short lower, short upper)
+            throws IOException {
+        this.device.writeRegWord(REG_ALS_THRESHOLD + 0, lower);
+        this.device.writeRegWord(REG_ALS_THRESHOLD + 2, upper);
+
+    }
+
+    /**
+     * Reset the sensor.
+     *
+     * @throws IOException
+     */
     public void reset() throws IOException {
         this.setBits(REG_ALS_CONTROL, 0b00000010, 1, 1);
 
@@ -163,6 +244,11 @@ public class Ltr559 implements AutoCloseable {
         }
     }
 
+    /**
+     * Connect to the sensor and set default values.
+     *
+     * @throws IOException
+     */
     private void connect() throws IOException {
         if (this.device == null) {
             throw new IllegalStateException("");
@@ -179,21 +265,19 @@ public class Ltr559 implements AutoCloseable {
 
         this.reset();
 
-        //setBits(REG_PS_LED, 0b00000111, 0, 0b011); // 50mA
-        //setBits(REG_PS_LED, 0b00011000, 3, 0b011); // 100%
-        //setBits(REG_PS_LED, 0b11100000, 5, 0b000); // 30kHz
         setProximityLED(50, 100, 30, 1);
 
-        //setBits(REG_ALS_CONTROL, 0b00000001, 0, 1); // Mode 1
-        //setBits(REG_ALS_CONTROL, 0b00011100, 2, 0b011); // Gain 4x
         setLightOptions(true, 4);
-
-        setLightIntegrationTime(100); // 100ms
 
         setProximityControl(true, true);
 
-        //setBits(REG_PS_CONTROL, 0b00100000, 5, 0b1); // Saturation Indicator Enable
-        //setBits(REG_PS_CONTROL, 0b00000011, 0, 0b11); // Active
+        setLightIntegrationTime(100); // 100ms
+        setProximityRate(100); // 100ms
+        setLightRate(100); // 100ms
+
+        setProximityThreshold((short)0, (short)2047);
+        setLightThreshold((short)0, (short)65535);
+
 
         byte[] offset = new byte[2];
 
@@ -202,6 +286,11 @@ public class Ltr559 implements AutoCloseable {
         setBits(REG_INTERRUPT, 0b00000011, 0, 0b11); // als+ps interrupts
     }
 
+    /**
+     * Update the internal proximity and lux states from the sensor.
+     *
+     * @throws IOException
+     */
     public void updateSensor() throws IOException {
         int ratio = 1000;
         int ch_idx = 3;
@@ -211,16 +300,12 @@ public class Ltr559 implements AutoCloseable {
         boolean alsInt = (status & 0b00001100) > 0; // Test the PS Interrupt and Data bits
 
         if (psInt) {
-            byte[] buffer = new byte[2];
-            this.device.readRegBuffer(REG_PS_DATA, buffer, 2);
-            this.ps0 = ((Byte.toUnsignedInt(buffer[1]) & 0x0F) << 8) | Byte.toUnsignedInt(buffer[0]);
+            this.ps0 = this.device.readRegWord(REG_PS_DATA) & 0x7ff;
         }
 
         if (alsInt) {
-            byte[] buffer = new byte[4];
-            this.device.readRegBuffer(REG_ALS_DATA, buffer, 4);
-            this.als0 = (Byte.toUnsignedInt(buffer[1]) << 8) | Byte.toUnsignedInt(buffer[0]);
-            this.als1 = (Byte.toUnsignedInt(buffer[3]) << 8) | Byte.toUnsignedInt(buffer[2]);
+            this.als0 = this.device.readRegWord(REG_ALS_DATA);
+            this.als1 = this.device.readRegWord(REG_ALS_DATA + 2);
 
             if (this.als0 + this.als1 > 0) {
                 ratio = (int) ((float) (this.als0 * 1000) / (float) (this.als1 + this.als0));
