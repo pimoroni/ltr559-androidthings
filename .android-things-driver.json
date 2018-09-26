@@ -1,0 +1,21 @@
+{
+  "title": "LTR559",
+  "category": "proximity and ambient light sensor",
+  "samples": [""],
+  "published-jar": {
+    "location": "https://github.com/pimoroni/ltr559-androidthings"
+  },
+  "published-maven": {
+    "maven-url": "url",
+    "groupid": "com.pimoroni.android.things.contrib.community.driver",
+    "artifactid": "ltr559"
+  },
+  "compatible-with": [
+    {
+      "title": "Pimoroni LTR559 Breakout",
+      "photo": "",
+      "url": "",
+      "notes": ""
+    }
+  ]
+}

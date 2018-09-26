@@ -50,7 +50,7 @@ subprojects {
     publishing.publications {
         "$publicationName"(MavenPublication) {
             groupId 'com.pimoroni.android.things.contrib.community.driver'
-            artifactId "driver-$project.name"
+            artifactId "$project.name"
             version artifactVersion
             artifact sourceJar
             artifact("$buildDir/outputs/aar/$project.name-release.aar")
